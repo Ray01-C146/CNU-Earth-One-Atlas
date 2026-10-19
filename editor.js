@@ -6,121 +6,142 @@
   const views = Object.keys(defaults.views);
   const dialog = $('editor-dialog');
   const form = $('editor-form');
+  // Keep the original draft key so drafts from the earlier editor remain available.
   const draftKey = 'cnu-atlas-editor-draft-v1:' + location.pathname;
-  const configured = document.querySelector('meta[name="atlas-editor-api"]').content.trim().replace(/\/$/,'');
-  let api = '';
-  if (configured) {
-    const url = new URL(configured,location.href);
-    if (url.protocol === 'https:' || (url.protocol === 'http:' && ['localhost','127.0.0.1'].includes(url.hostname))) api = url.href.replace(/\/$/,'');
-  }
   let published = copy(defaults), working = copy(defaults);
-  let token = '', expires = 0, expiryTimer, sha = null, busy = false;
   let viewId = 'Archive', eventId = working.events[0].id;
+  let busy = false, canExport = false, edited = false;
   function status(message) { $('editor-status').textContent = message; }
   function validate(value) {
     if (value?.version !== 1 || typeof value.brand !== 'string' || !value.brand.trim() || value.brand.length > 40 || typeof value.news !== 'string' || value.news.length > 2000) throw Error('Invalid site content.');
-    if (!/^#[0-9a-f]{6}$/i.test(value.colors?.blue || '') || !/^#[0-9a-f]{6}$/i.test(value.colors?.bright || '')) throw Error('Invalid colors.');
-    for (const id of views) { const v = value.views?.[id]; if (!v || typeof v.label !== 'string' || !v.label.trim() || v.label.length > 40 || typeof v.title !== 'string' || !v.title.trim() || v.title.length > 200 || typeof v.description !== 'string' || v.description.length > 20000) throw Error('Invalid section.'); }
-    if (!Array.isArray(value.events) || !value.events.length || value.events.length > 1000) throw Error('Invalid events.');
+    for (const key of ['blue','bright']) if (!/^#[0-9a-f]{6}$/i.test(value.colors?.[key] || '')) throw Error('Invalid colors.');
+    for (const id of views) {
+      const v = value.views?.[id];
+      if (!v || typeof v.label !== 'string' || !v.label.trim() || v.label.length > 40 || typeof v.title !== 'string' || !v.title.trim() || v.title.length > 200 || typeof v.description !== 'string' || v.description.length > 20000) throw Error('Invalid section content.');
+    }
+    if (!Array.isArray(value.events) || !value.events.length || value.events.length > 1000) throw Error('Use between 1 and 1000 events.');
     const ids = new Set();
-    for (const e of value.events) { if (!Number.isSafeInteger(e.id) || e.id < 1 || ids.has(e.id) || typeof e.title !== 'string' || !e.title.trim() || e.title.length > 200 || typeof e.description !== 'string' || e.description.length > 20000) throw Error('Invalid event.'); ids.add(e.id); }
+    for (const e of value.events) {
+      if (!Number.isSafeInteger(e.id) || e.id < 1 || ids.has(e.id) || typeof e.title !== 'string' || !e.title.trim() || e.title.length > 200 || typeof e.description !== 'string' || e.description.length > 20000) throw Error('Invalid event content.');
+      ids.add(e.id);
+    }
     return value;
   }
   function apply(data) {
     validate(data);
     window.atlasContent = copy(data);
     document.querySelector('.brand').textContent = data.brand;
-    document.querySelector('.brand').setAttribute('aria-label',data.brand);
+    document.querySelector('.brand').setAttribute('aria-label', data.brand);
     document.title = data.brand;
     document.querySelector('.news-text').textContent = data.news;
-    for (const [key,value] of Object.entries(data.colors)) if (['blue','bright'].includes(key)) document.documentElement.style.setProperty('--'+key,value);
+    for (const key of ['blue','bright']) document.documentElement.style.setProperty('--' + key, data.colors[key]);
     document.querySelectorAll('[data-view]').forEach(button => { button.textContent = data.views[button.dataset.view].label; });
     const selected = document.querySelector('[data-view][aria-current="page"]')?.dataset.view || 'Archive';
     $('view-title').textContent = data.views[selected].title;
     $('view-description').textContent = data.views[selected].description;
     window.atlasReplaceEvents(copy(data.events));
   }
-  function lock(message = 'Editor locked.') {
-    token = ''; expires = 0; clearTimeout(expiryTimer); sha = null;
-    $('editor-password').value = '';
-    form.hidden = true; $('editor-login').hidden = false;
-    apply(published); status(message);
+  function option(value, label) { const o = document.createElement('option'); o.value = value; o.textContent = label; return o; }
+  function fillView() {
+    const v = working.views[viewId];
+    $('edit-label').value = v.label; $('edit-heading').value = v.title; $('edit-description').value = v.description;
   }
-  function requireSession() {
-    if (!token || Date.now() >= expires) { lock('Your session expired. Sign in again.'); throw Error('Sign in again.'); }
+  function saveView() {
+    const v = working.views[viewId];
+    v.label = $('edit-label').value; v.title = $('edit-heading').value; v.description = $('edit-description').value;
   }
-  async function request(path,body) {
-    if (!api) throw Error('The editor backend is not connected yet. Configure its URL in index.html after deploying it.');
-    if (path !== '/login') requireSession();
-    let response;
-    try {response = await fetch(api+path,{method:body === undefined?'GET':'POST',headers:{...(body === undefined?{}:{'Content-Type':'application/json'}),...(token?{Authorization:'Bearer '+token}:{})},...(body === undefined?{}:{body:JSON.stringify(body)}),cache:'no-store',signal:AbortSignal.timeout(30000)});}
-    catch {throw Error('Could not reach the editor backend. If publishing timed out, check GitHub before retrying.');}
-    let result;try {result=await response.json();}catch {throw Error('The backend returned an invalid response.');}
-    if (!response.ok) { if (response.status === 401 && path !== '/login') lock('Session expired. Sign in again.'); throw Error(result.error || 'The request failed.'); }
-    return result;
+  function fillEvent() {
+    const e = working.events.find(e => e.id === eventId);
+    $('edit-event-title').value = e.title; $('edit-event-description').value = e.description;
+  }
+  function saveEvent() {
+    const e = working.events.find(e => e.id === eventId);
+    e.title = $('edit-event-title').value; e.description = $('edit-event-description').value;
+  }
+  function fill() {
+    $('edit-brand').value = working.brand; $('edit-news').value = working.news;
+    $('edit-blue').value = working.colors.blue; $('edit-bright').value = working.colors.bright;
+    $('edit-view').replaceChildren(...views.map(id => option(id, working.views[id].label)));
+    $('edit-view').value = viewId; fillView();
+    if (!working.events.some(e => e.id === eventId)) eventId = working.events[0].id;
+    $('edit-event').replaceChildren(...working.events.map(e => option(e.id, `${e.id}. ${e.title}`)));
+    $('edit-event').value = eventId; fillEvent();
+  }
+  function collect() {
+    saveView(); saveEvent(); working.brand = $('edit-brand').value; working.news = $('edit-news').value;
+    working.colors.blue = $('edit-blue').value; working.colors.bright = $('edit-bright').value;
+    return copy(validate(working));
   }
   async function run(task) {
     if (busy) return;
-    busy=true;dialog.querySelectorAll('button,input,textarea,select').forEach(b=>b.disabled=true);
-    try {await task();} catch(e) {status(e.message);} finally {busy=false;dialog.querySelectorAll('button,input,textarea,select').forEach(b=>b.disabled=false);}
+    busy = true;
+    dialog.querySelectorAll('button,input,textarea,select').forEach(e => e.disabled = true);
+    try { await task(); } catch (e) { status(e.message); }
+    finally { busy = false; dialog.querySelectorAll('button,input,textarea,select').forEach(e => e.disabled = false); }
   }
-  function fillView() { const v=working.views[viewId];$('edit-label').value=v.label;$('edit-heading').value=v.title;$('edit-description').value=v.description; }
-  function saveView() {const v=working.views[viewId];v.label=$('edit-label').value;v.title=$('edit-heading').value;v.description=$('edit-description').value;}
-  function fillEvent() {const e=working.events.find(e=>e.id===eventId);$('edit-event-title').value=e.title;$('edit-event-description').value=e.description;}
-  function saveEvent() {const e=working.events.find(e=>e.id===eventId);e.title=$('edit-event-title').value;e.description=$('edit-event-description').value;}
-  function collect() {
-    requireSession();saveView();saveEvent();working.brand=$('edit-brand').value;working.news=$('edit-news').value;working.colors.blue=$('edit-blue').value;working.colors.bright=$('edit-bright').value;validate(working);return copy(working);
+  async function loadPublished() {
+    const response = await fetch(new URL('site-content.json', document.baseURI), { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+    if (!response.ok) throw Error('Published content could not be loaded. Check that site-content.json is beside index.html.');
+    return validate(await response.json());
   }
-  function option(value,label) {const o=document.createElement('option');o.value=value;o.textContent=label;return o;}
-  function fill() {
-    $('edit-brand').value=working.brand;$('edit-news').value=working.news;$('edit-blue').value=working.colors.blue;$('edit-bright').value=working.colors.bright;
-    $('edit-view').replaceChildren(...views.map(id=>option(id,working.views[id].label)));$('edit-view').value=viewId;fillView();
-    if (!working.events.some(e=>e.id===eventId)) eventId=working.events[0].id;
-    $('edit-event').replaceChildren(...working.events.map(e=>option(e.id,`${e.id}. ${e.title}`)));$('edit-event').value=eventId;fillEvent();
+  function download(value, name) {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2) + '\n'], { type: 'application/json' }));
+    const a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  $('editor-open').onclick=()=>{dialog.showModal();if(!token){status(api?'Enter your editor password.':'The editor backend is not connected yet. The page remains publicly viewable.');$('editor-password').focus();}};
-  $('editor-close').onclick=()=>dialog.close();
-  $('editor-login').onsubmit=event=>{event.preventDefault();run(async()=>{
-    const password=$('editor-password').value;$('editor-password').value='';status('Signing in…');await ready;
-    const login=await request('/login',{password});token=login.token;expires=login.expires;
-    try {
-      const latest=await request('/content');published=copy(validate(latest.data || defaults));working=copy(published);sha=latest.sha;
-      form.hidden=false;$('editor-login').hidden=true;fill();apply(published);
-      clearTimeout(expiryTimer);expiryTimer=setTimeout(()=>lock('Your session expired. Sign in again.'),Math.max(0,expires-Date.now()));
-      status('Editor unlocked. Changes stay private until you publish.');
-    } catch(e) {try {await request('/logout',{});}catch{}lock(e.message);}
-  });};
-  $('edit-view').onchange=()=>{saveView();viewId=$('edit-view').value;fillView();};
-  $('edit-event').onchange=()=>{saveEvent();eventId=Number($('edit-event').value);fillEvent();};
-  form.onsubmit=event=>{event.preventDefault();run(async()=>{const data=collect();apply(data);status('Preview applied. Close this panel to inspect the page. Nothing has been published.');});};
-  $('editor-draft-save').onclick=()=>run(async()=>{const data=collect();localStorage.setItem(draftKey,JSON.stringify({data,sha,savedAt:new Date().toISOString()}));status('Draft saved in this browser. It has not been published.');});
-  $('editor-draft-load').onclick=()=>run(async()=>{
-    requireSession();const raw=localStorage.getItem(draftKey);if(!raw)throw Error('No saved draft in this browser.');
-    const draft=JSON.parse(raw);validate(draft.data);
-    if(draft.sha!==sha)throw Error('This draft is based on an older GitHub revision. It was not loaded. Copy out any changes you need from the browser draft before clearing it.');
-    if(!confirm('Replace the current editor fields with your saved draft?'))return;
-    working=copy(draft.data);fill();apply(working);status('Draft loaded. Publish when ready.');
+  function saveDraft(data) {
+    localStorage.setItem(draftKey, JSON.stringify({ data, baseContent: published, savedAt: new Date().toISOString() }));
+  }
+  form.addEventListener('input', () => { edited = true; });
+  $('editor-open').onclick = async () => {
+    dialog.showModal();
+    await run(async () => {
+      await ready;
+      status(canExport ? 'Editor ready. Changes stay in this browser until you upload an exported file to GitHub.' : 'Published content could not be loaded. Reload it or load a saved draft before exporting.');
+    });
+  };
+  $('editor-close').onclick = () => dialog.close();
+  $('edit-view').onchange = () => { saveView(); viewId = $('edit-view').value; fillView(); };
+  $('edit-event').onchange = () => { saveEvent(); eventId = Number($('edit-event').value); fillEvent(); };
+  form.onsubmit = event => {
+    event.preventDefault();
+    run(async () => { apply(collect()); status('Preview applied in this browser. Close the editor to inspect it. Nothing has been published.'); });
+  };
+  $('editor-draft-save').onclick = () => {
+    if (!form.reportValidity()) return;
+    run(async () => { saveDraft(collect()); edited = false; status('Draft saved in this browser. It has not been published.'); });
+  };
+  $('editor-draft-load').onclick = () => run(async () => {
+    const raw = localStorage.getItem(draftKey); if (!raw) throw Error('No saved draft in this browser.');
+    const draft = JSON.parse(raw); validate(draft.data);
+    const changed = !draft.baseContent || JSON.stringify(draft.baseContent) !== JSON.stringify(published);
+    if (!confirm(changed ? 'This draft may be older than the published content. Loading it will replace your editor fields. Continue?' : 'Replace your editor fields with the saved draft?')) return;
+    working = copy(draft.data); canExport = true; edited = false; fill(); apply(working);
+    status('Draft loaded. Review it before exporting; it has not changed the public site.');
   });
-  $('editor-draft-export').onclick=()=>run(async()=>{
-    requireSession();const raw=localStorage.getItem(draftKey);if(!raw)throw Error('Save a draft first.');
-    const draft=JSON.parse(raw);validate(draft.data);
-    const url=URL.createObjectURL(new Blob([JSON.stringify(draft,null,2)],{type:'application/json'}));
-    const a=document.createElement('a');a.href=url;a.download='atlas-draft.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);status('Saved browser draft exported as atlas-draft.json.');
+  $('editor-draft-export').onclick = () => run(async () => {
+    const raw = localStorage.getItem(draftKey); if (!raw) throw Error('Save a draft first.');
+    const draft = JSON.parse(raw); validate(draft.data); download(draft, 'atlas-draft.json');
+    status('Saved draft exported as atlas-draft.json. This is a backup; use Export site-content.json for the publishable file.');
   });
-  $('editor-publish').onclick=()=>{if(!form.reportValidity())return;return run(async()=>{
-    const data=collect();localStorage.setItem(draftKey,JSON.stringify({data,sha,savedAt:new Date().toISOString()}));
-    if(!confirm('Commit these content changes to the main branch of Ray01-C146/CNU-Earth-One-Atlas?'))return;
-    status('Publishing to GitHub…');const result=await request('/publish',{data,sha});sha=result.sha;published=copy(data);working=copy(data);apply(data);
-    // Keep the draft, rebased to the revision that was just saved.
-    let draftSaved=true;try {localStorage.setItem(draftKey,JSON.stringify({data,sha,savedAt:new Date().toISOString()}));}catch {draftSaved=false;}
-    status('Committed to GitHub. GitHub Pages may take a few minutes to update.'+(draftSaved?'':' The local draft could not be updated.'));
-    if(typeof result.commitUrl==='string' && result.commitUrl.startsWith('https://github.com/Ray01-C146/CNU-Earth-One-Atlas/commit/')) {const a=document.createElement('a');a.href=result.commitUrl;a.textContent=' View commit';a.target='_blank';a.rel='noopener noreferrer';$('editor-status').append(a);}
-  });};
-  $('editor-reload').onclick=()=>run(async()=>{requireSession();if(!confirm('Discard the unsaved fields and load the latest GitHub content? Your saved browser draft will remain.'))return;const latest=await request('/content');published=copy(validate(latest.data || defaults));working=copy(published);sha=latest.sha;fill();apply(published);status('Latest GitHub content loaded.');});
-  $('editor-logout').onclick=()=>run(async()=>{await request('/logout',{});lock();});
-  addEventListener('beforeunload',()=>{token='';});
-  // Static visitors read the public content file. Never load browser drafts automatically.
-  apply(defaults);
-  const ready=fetch(new URL('site-content.json',document.baseURI),{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(data=>{published=copy(validate(data));if(!token)apply(published);}).catch(()=>{});
-
+  $('editor-export').onclick = () => {
+    if (!form.reportValidity()) return;
+    run(async () => {
+      if (!canExport) throw Error('Reload published content or load a saved draft first, so sample content does not replace your public content accidentally.');
+      const data = collect(); apply(data); download(data, 'site-content.json');
+      let saved = true; try { saveDraft(data); edited = false; } catch { saved = false; }
+      status('Exported site-content.json. Upload it to your GitHub repository root, replacing the existing file, and commit the change.' + (saved ? ' A browser draft was also saved.' : ' The browser draft could not be saved.'));
+    });
+  };
+  $('editor-reload').onclick = () => run(async () => {
+    if (!confirm('Discard the current editor fields and load published content? Saved browser drafts will remain.')) return;
+    const data = await loadPublished(); published = copy(data); working = copy(data); canExport = true; edited = false; fill(); apply(data);
+    status('Published content reloaded.');
+  });
+  addEventListener('beforeunload', event => { if (edited) { event.preventDefault(); event.returnValue = ''; } });
+  apply(defaults); fill();
+  const ready = loadPublished().then(data => {
+    published = copy(data); canExport = true;
+    if (!edited) { working = copy(data); fill(); apply(data); }
+  }).catch(() => { canExport = false; });
 })();

@@ -4,9 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Atlas</title>
-<!-- Set this public URL AFTER deploying editor-backend. Never put secrets here. -->
-<meta name="atlas-editor-api" content="">
-
 <style>
 :root {
   color-scheme: dark;
@@ -917,13 +914,9 @@ window.atlasReplaceEvents = function (incoming) {
 <dialog id="editor-dialog" aria-labelledby="editor-heading">
   <button id="editor-close" type="button" aria-label="Close editor">×</button>
   <h2 id="editor-heading">Atlas editor</h2>
-  <form id="editor-login">
-    <p class="editor-help">Sign in to edit and publish this site.</p>
-    <label>Password<input id="editor-password" type="password" autocomplete="current-password" required maxlength="1024"></label>
-    <button id="editor-signin" type="submit">Unlock editor</button>
-  </form>
-  <form id="editor-form" hidden>
-    <p class="editor-help">Preview applies changes on this page. Publish commits them to GitHub. Drafts are kept only in this browser.</p>
+  <p class="editor-help">Editing affects your browser only. Publishing requires uploading the exported file through your GitHub account.</p>
+<form id="editor-form">
+    <p class="editor-help">Preview changes on this page, save a browser draft, or export site-content.json to upload to GitHub. Changes here do not update the public website automatically.</p>
     <label>Site name<input id="edit-brand" maxlength="40" required></label>
     <label>News line<textarea id="edit-news" maxlength="2000"></textarea></label>
     <div class="editor-colors">
@@ -944,9 +937,9 @@ window.atlasReplaceEvents = function (incoming) {
       <button type="button" id="editor-draft-save">Save draft</button>
       <button type="button" id="editor-draft-load">Load draft</button>
       <button type="button" id="editor-draft-export">Export saved draft</button>
-      <button type="button" id="editor-publish">Publish to GitHub</button>
-      <button type="button" id="editor-reload">Reload from GitHub</button>
-      <button type="button" id="editor-logout">Lock editor</button>
+      <button type="button" id="editor-export">Export site-content.json</button>
+      <button type="button" id="editor-reload">Reload published content</button>
+      
     </div>
   </form>
   <p id="editor-status" role="status" aria-live="polite"></p>
