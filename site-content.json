@@ -1,0 +1,153 @@
+{
+  "version": 1,
+  "brand": "ATLAS",
+  "news": "Your world. Your history. \u2022 Add your events, characters, and stories to begin.",
+  "colors": {
+    "blue": "#285ba7",
+    "bright": "#2395df"
+  },
+  "views": {
+    "Home": {
+      "label": "Home",
+      "title": "Home",
+      "description": "Home content will appear here."
+    },
+    "World": {
+      "label": "World",
+      "title": "World",
+      "description": "World content will appear here."
+    },
+    "Codex": {
+      "label": "Codex",
+      "title": "Codex",
+      "description": "Codex content will appear here."
+    },
+    "Story": {
+      "label": "Story",
+      "title": "Story",
+      "description": "Story content will appear here."
+    },
+    "Gallery": {
+      "label": "Gallery",
+      "title": "Gallery",
+      "description": "Gallery content will appear here."
+    },
+    "Theater": {
+      "label": "Theater",
+      "title": "Theater",
+      "description": "Theater content will appear here."
+    },
+    "Archive": {
+      "label": "Archive",
+      "title": "Archive",
+      "description": "Archive content will appear here."
+    },
+    "Workshop": {
+      "label": "Workshop",
+      "title": "Workshop",
+      "description": "Workshop content will appear here."
+    }
+  },
+  "events": [
+    {
+      "id": 1,
+      "title": "Event 01",
+      "description": "This is the placeholder for event 1. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 2,
+      "title": "Event 02",
+      "description": "This is the placeholder for event 2. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 3,
+      "title": "Event 03",
+      "description": "This is the placeholder for event 3. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 4,
+      "title": "Event 04",
+      "description": "This is the placeholder for event 4. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 5,
+      "title": "Event 05",
+      "description": "This is the placeholder for event 5. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 6,
+      "title": "Event 06",
+      "description": "This is the placeholder for event 6. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 7,
+      "title": "Event 07",
+      "description": "This is the placeholder for event 7. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 8,
+      "title": "Event 08",
+      "description": "This is the placeholder for event 8. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 9,
+      "title": "Event 09",
+      "description": "This is the placeholder for event 9. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 10,
+      "title": "Event 10",
+      "description": "This is the placeholder for event 10. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 11,
+      "title": "Event 11",
+      "description": "This is the placeholder for event 11. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 12,
+      "title": "Event 12",
+      "description": "This is the placeholder for event 12. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 13,
+      "title": "Event 13",
+      "description": "This is the placeholder for event 13. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 14,
+      "title": "Event 14",
+      "description": "This is the placeholder for event 14. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 15,
+      "title": "Event 15",
+      "description": "This is the placeholder for event 15. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 16,
+      "title": "Event 16",
+      "description": "This is the placeholder for event 16. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 17,
+      "title": "Event 17",
+      "description": "This is the placeholder for event 17. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 18,
+      "title": "Event 18",
+      "description": "This is the placeholder for event 18. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 19,
+      "title": "Event 19",
+      "description": "This is the placeholder for event 19. Replace its title and description in the editor to begin building your archive."
+    },
+    {
+      "id": 20,
+      "title": "Event 20",
+      "description": "This is the placeholder for event 20. Replace its title and description in the editor to begin building your archive."
+    }
+  ]
+}

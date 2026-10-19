@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Atlas</title>
+<!-- Set this public URL AFTER deploying editor-backend. Never put secrets here. -->
+<meta name="atlas-editor-api" content="">
 
 <style>
 :root {
@@ -531,6 +533,29 @@ button:hover {
     flex-basis: 75px;
   }
 }
+
+/* Website editor */
+#editor-open { order:3; margin-left:auto; align-self:stretch; padding:0 16px; border:0; background:var(--blue); font-size:11px; font-weight:bold; }
+.news-text { flex:1; min-width:0; }
+#editor-dialog { background:#102332; color:#edf4fa; border:2px solid #e7f2fc; border-radius:12px; width:min(540px,calc(100% - 24px)); max-height:90svh; padding:24px; }
+#editor-dialog::backdrop { background:#000a; }
+#editor-dialog h2 { margin:0 0 16px; font-size:20px; }
+#editor-dialog h3 { margin:24px 0 12px; font-size:15px; }
+#editor-dialog label { display:block; margin:12px 0; font-size:13px; }
+#editor-dialog input:not([type=color]), #editor-dialog textarea, #editor-dialog select { display:block; width:100%; margin-top:5px; padding:10px; background:#071622; color:white; border:1px solid #647f94; border-radius:5px; font:inherit; }
+#editor-dialog textarea { min-height:95px; resize:vertical; }
+#editor-dialog input[type=color] { display:block; margin-top:5px; width:80px; height:35px; }
+#editor-dialog button { background:#285ba7; border:1px solid #adc8dd; padding:9px 12px; border-radius:5px; font-size:13px; }
+#editor-dialog button:disabled { opacity:.5; cursor:wait; }
+#editor-close { float:right; }
+.editor-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+.editor-help, #editor-status { font-size:13px; line-height:1.6; }
+#editor-status { white-space:pre-wrap; color:#bce4ff; }
+#editor-dialog [hidden] { display:none!important; }
+.editor-colors { display:flex; gap:28px; }
+.center p { white-space:pre-line; overflow-wrap:anywhere; }
+.center h1, .brand, .nav-group button, .card-title { overflow-wrap:anywhere; }
+.brand { overflow:hidden; }
 </style>
 </head>
 
@@ -643,6 +668,7 @@ button:hover {
   </section>
 
   <footer class="news">
+    <button id="editor-open" type="button" aria-haspopup="dialog">Edit</button>
     <span class="news-label">ATLAS NEWS</span>
     <p class="news-text">
       Your world. Your history. &nbsp; • &nbsp;
@@ -656,7 +682,7 @@ button:hover {
 // Original starter interface.
 // Replace these placeholder records with your own event data.
 
-const events = Array.from({ length: 20 }, (_, i) => ({
+let events = Array.from({ length: 20 }, (_, i) => ({
   id: i + 1,
   title: `Event ${String(i + 1).padStart(2, "0")}`,
   description:
@@ -746,9 +772,9 @@ document.querySelectorAll("[data-view]").forEach(button => {
 
     button.setAttribute("aria-current", "page");
 
-    title.textContent = button.dataset.view;
-    description.textContent =
-      `${button.dataset.view} content will appear here.`;
+    const view = window.atlasContent?.views[button.dataset.view];
+    title.textContent = view?.title || button.dataset.view;
+    description.textContent = view?.description || `${button.dataset.view} content will appear here.`;
 
     cards.querySelectorAll("button").forEach(card => {
       card.setAttribute("aria-pressed", "false");
@@ -880,6 +906,52 @@ document.getElementById("palette").onclick = () => {
 };
 
 render();
+
+// Editor bridge: keep the timeline state owned by this script.
+window.atlasReplaceEvents = function (incoming) {
+  events.splice(0, events.length, ...incoming);
+  render();
+};
 </script>
+
+<dialog id="editor-dialog" aria-labelledby="editor-heading">
+  <button id="editor-close" type="button" aria-label="Close editor">×</button>
+  <h2 id="editor-heading">Atlas editor</h2>
+  <form id="editor-login">
+    <p class="editor-help">Sign in to edit and publish this site.</p>
+    <label>Password<input id="editor-password" type="password" autocomplete="current-password" required maxlength="1024"></label>
+    <button id="editor-signin" type="submit">Unlock editor</button>
+  </form>
+  <form id="editor-form" hidden>
+    <p class="editor-help">Preview applies changes on this page. Publish commits them to GitHub. Drafts are kept only in this browser.</p>
+    <label>Site name<input id="edit-brand" maxlength="40" required></label>
+    <label>News line<textarea id="edit-news" maxlength="2000"></textarea></label>
+    <div class="editor-colors">
+      <label>Navigation color<input id="edit-blue" type="color"></label>
+      <label>Accent color<input id="edit-bright" type="color"></label>
+    </div>
+    <h3>Sections</h3>
+    <label>Section<select id="edit-view"></select></label>
+    <label>Navigation label<input id="edit-label" maxlength="40" required></label>
+    <label>Heading<input id="edit-heading" maxlength="200" required></label>
+    <label>Description<textarea id="edit-description" maxlength="20000"></textarea></label>
+    <h3>Event cards</h3>
+    <label>Event<select id="edit-event"></select></label>
+    <label>Event title<input id="edit-event-title" maxlength="200" required></label>
+    <label>Event description<textarea id="edit-event-description" maxlength="20000"></textarea></label>
+    <div class="editor-actions">
+      <button type="submit">Preview changes</button>
+      <button type="button" id="editor-draft-save">Save draft</button>
+      <button type="button" id="editor-draft-load">Load draft</button>
+      <button type="button" id="editor-draft-export">Export saved draft</button>
+      <button type="button" id="editor-publish">Publish to GitHub</button>
+      <button type="button" id="editor-reload">Reload from GitHub</button>
+      <button type="button" id="editor-logout">Lock editor</button>
+    </div>
+  </form>
+  <p id="editor-status" role="status" aria-live="polite"></p>
+</dialog>
+<script id="atlas-default-content" type="application/json">{"version": 1, "brand": "ATLAS", "news": "Your world. Your history. \u2022 Add your events, characters, and stories to begin.", "colors": {"blue": "#285ba7", "bright": "#2395df"}, "views": {"Home": {"label": "Home", "title": "Home", "description": "Home content will appear here."}, "World": {"label": "World", "title": "World", "description": "World content will appear here."}, "Codex": {"label": "Codex", "title": "Codex", "description": "Codex content will appear here."}, "Story": {"label": "Story", "title": "Story", "description": "Story content will appear here."}, "Gallery": {"label": "Gallery", "title": "Gallery", "description": "Gallery content will appear here."}, "Theater": {"label": "Theater", "title": "Theater", "description": "Theater content will appear here."}, "Archive": {"label": "Archive", "title": "Archive", "description": "Archive content will appear here."}, "Workshop": {"label": "Workshop", "title": "Workshop", "description": "Workshop content will appear here."}}, "events": [{"id": 1, "title": "Event 01", "description": "This is the placeholder for event 1. Replace its title and description in the editor to begin building your archive."}, {"id": 2, "title": "Event 02", "description": "This is the placeholder for event 2. Replace its title and description in the editor to begin building your archive."}, {"id": 3, "title": "Event 03", "description": "This is the placeholder for event 3. Replace its title and description in the editor to begin building your archive."}, {"id": 4, "title": "Event 04", "description": "This is the placeholder for event 4. Replace its title and description in the editor to begin building your archive."}, {"id": 5, "title": "Event 05", "description": "This is the placeholder for event 5. Replace its title and description in the editor to begin building your archive."}, {"id": 6, "title": "Event 06", "description": "This is the placeholder for event 6. Replace its title and description in the editor to begin building your archive."}, {"id": 7, "title": "Event 07", "description": "This is the placeholder for event 7. Replace its title and description in the editor to begin building your archive."}, {"id": 8, "title": "Event 08", "description": "This is the placeholder for event 8. Replace its title and description in the editor to begin building your archive."}, {"id": 9, "title": "Event 09", "description": "This is the placeholder for event 9. Replace its title and description in the editor to begin building your archive."}, {"id": 10, "title": "Event 10", "description": "This is the placeholder for event 10. Replace its title and description in the editor to begin building your archive."}, {"id": 11, "title": "Event 11", "description": "This is the placeholder for event 11. Replace its title and description in the editor to begin building your archive."}, {"id": 12, "title": "Event 12", "description": "This is the placeholder for event 12. Replace its title and description in the editor to begin building your archive."}, {"id": 13, "title": "Event 13", "description": "This is the placeholder for event 13. Replace its title and description in the editor to begin building your archive."}, {"id": 14, "title": "Event 14", "description": "This is the placeholder for event 14. Replace its title and description in the editor to begin building your archive."}, {"id": 15, "title": "Event 15", "description": "This is the placeholder for event 15. Replace its title and description in the editor to begin building your archive."}, {"id": 16, "title": "Event 16", "description": "This is the placeholder for event 16. Replace its title and description in the editor to begin building your archive."}, {"id": 17, "title": "Event 17", "description": "This is the placeholder for event 17. Replace its title and description in the editor to begin building your archive."}, {"id": 18, "title": "Event 18", "description": "This is the placeholder for event 18. Replace its title and description in the editor to begin building your archive."}, {"id": 19, "title": "Event 19", "description": "This is the placeholder for event 19. Replace its title and description in the editor to begin building your archive."}, {"id": 20, "title": "Event 20", "description": "This is the placeholder for event 20. Replace its title and description in the editor to begin building your archive."}]}</script>
+<script src="editor.js"></script>
 </body>
 </html>
