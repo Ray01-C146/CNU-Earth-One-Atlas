@@ -1,0 +1,7 @@
+{
+  "name": "atlas-editor-backend",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node server.mjs", "password": "node password.mjs", "test": "node --test test.mjs" }
+}
